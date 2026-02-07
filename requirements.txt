@@ -1,0 +1,10 @@
+flask
+python-dotenv
+pytesseract
+opencv-python
+pillow
+numpy
+torch
+transformers
+scikit-learn
+sqlite-utils

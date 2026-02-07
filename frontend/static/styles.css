@@ -1,0 +1,43 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 40px;
+}
+
+input, button {
+  margin: 8px 0;
+  padding: 8px;
+}
+
+pre {
+  background: #f4f4f4;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.risk-card {
+  border-left: 6px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+
+.risk-high {
+  border-color: #d9534f;
+}
+
+.risk-medium {
+  border-color: #f0ad4e;
+}
+
+.risk-low {
+  border-color: #5bc0de;
+}
+
+.risk-level {
+  font-weight: bold;
+}
+
+.risk-source {
+  font-size: 12px;
+  color: #666;
+}
