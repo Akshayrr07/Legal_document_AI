@@ -1,21 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Agent</title>
+  <title>Legal Analyzer | Lex AI</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <h2>Legal Document Analyzer</h2>
 
-  <input type="file" id="doc" />
-  <button onclick="analyze()">Analyze</button>
+<div class="analyzer-layout">
 
-  <h3>Summary</h3>
-  <p id="summary"></p>
+  <div class="analyzer-header">
+    <h2>Legal Document Analyzer</h2>
+    <p class="analyzer-sub">
+      Upload a contract to generate AI summary and detect potential legal risks.
+    </p>
+  </div>
 
-<h3>Risk Analysis</h3>
-<div id="risks"></div>
+  <div class="upload-card">
+    <input type="file" id="doc" />
+    <button class="analyze-btn" onclick="analyze()">Analyze</button>
+  </div>
 
-  <script src="/static/app.js"></script>
+  <div class="content-grid">
+
+    <div class="result-card">
+      <h3>Summary</h3>
+      <p id="summary"></p>
+    </div>
+
+    <div class="result-card">
+      <h3>Risk Analysis</h3>
+      <div id="risks"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

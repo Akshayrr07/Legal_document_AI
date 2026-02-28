@@ -1,15 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
+  <title>Dashboard | Lex AI</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <h2>Dashboard</h2>
-  <button onclick="goAgent()">Analyze New Document</button>
-  <div id="history"></div>
 
-  <script src="/static/app.js"></script>
-  <script>loadHistory();</script>
+<div class="main-layout">
+
+  <div class="dashboard-top">
+    <div>
+      <h2 class="page-title">Dashboard</h2>
+      <p class="page-subtitle">Monitor document analysis and detected legal risks</p>
+    </div>
+    <button class="action-btn" onclick="goAgent()">+ New Analysis</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number">{{ total_docs }}</div>
+      <div class="stat-label">Documents Analyzed</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number">{{ total_risks }}</div>
+      <div class="stat-label">Risks Identified</div>
+    </div>
+  </div>
+
+  <div class="history-block">
+    <h3>Recent Activity</h3>
+    <div id="history"></div>
+  </div>
+
+</div>
+
+<script src="/static/app.js"></script>
+<script>loadHistory();</script>
 </body>
 </html>
