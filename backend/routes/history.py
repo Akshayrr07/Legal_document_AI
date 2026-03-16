@@ -1,24 +1,38 @@
-import os
+"""
+History API route — retrieves past analysis records for a given user.
+"""
+
+import logging
 from flask import Blueprint, jsonify, request
 from utils.db import Database
+from backend.config import Config
+
+logger = logging.getLogger(__name__)
 
 history_bp = Blueprint("history", __name__)
 
-db = Database(
-    db_path=os.getenv("DATABASE_PATH")
-)
+# Shared DB instance (SQLite connection is per-request internally)
+_db: Database = Database(db_path=Config.DATABASE_PATH)
 
 
 @history_bp.route("/history", methods=["GET"])
 def get_history():
     """
-    Fetch past analyses for a user.
-    User ID is passed as query param (session auth later).
+    GET /api/history?user_id=<id>
+
+    Returns a list of past analysis records for the specified user,
+    ordered by most recent first.
     """
-    user_id = request.args.get("user_id")
+    user_id: str | None = request.args.get("user_id", "").strip() or None
 
     if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+        return jsonify({"error": "Query parameter 'user_id' is required."}), 400
 
-    history = db.fetch_user_history(user_id)
+    try:
+        history = _db.fetch_user_history(user_id)
+        logger.debug("Fetched %d history records for user '%s'.", len(history), user_id)
+    except Exception as exc:
+        logger.error("Database error fetching history for user '%s': %s", user_id, exc)
+        return jsonify({"error": "Failed to retrieve history.", "detail": str(exc)}), 500
+
     return jsonify({"history": history}), 200
