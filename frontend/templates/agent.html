@@ -11,13 +11,40 @@
   <div class="analyzer-header">
     <h2>Legal Document Analyzer</h2>
     <p class="analyzer-sub">
-      Upload a contract to generate AI summary and detect potential legal risks.
+      Upload a contract to generate an AI summary and detect potential legal risks.
     </p>
   </div>
 
   <div class="upload-card">
-    <input type="file" id="doc" />
+    <input type="file" id="doc" accept=".png,.jpg,.jpeg,.pdf" />
     <button class="analyze-btn" onclick="analyze()">Analyze</button>
+  </div>
+
+  <!-- OCR Metrics Panel -->
+  <div id="ocr-metrics-panel" class="ocr-metrics-panel" style="display:none;">
+    <h3 class="metrics-title">📊 OCR Scan Metrics</h3>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value" id="metric-words">—</div>
+        <div class="metric-label">Words Scanned</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="metric-chars">—</div>
+        <div class="metric-label">Characters</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="metric-tokens">—</div>
+        <div class="metric-label">Tokens</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="metric-confidence">—</div>
+        <div class="metric-label">OCR Confidence</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="metric-status">—</div>
+        <div class="metric-label">OCR Status</div>
+      </div>
+    </div>
   </div>
 
   <div class="content-grid">
