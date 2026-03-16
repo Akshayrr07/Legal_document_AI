@@ -1,36 +1,94 @@
-import sqlite3
+"""
+SQLite persistence layer for the Legal Document AI system.
+
+Improvements over the original:
+- Indexes on user_id and created_at for fast history queries
+- sqlite3.Row row factory for cleaner dict conversion
+- contextlib.closing() for safe, guaranteed connection cleanup
+- Parameterised queries (unchanged — already safe)
+- Full type hints
+"""
+
 import json
-from datetime import datetime
+import logging
+import sqlite3
+from contextlib import closing
+from datetime import datetime, timezone
 from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
     """
-    SQLite persistence layer for analyzed legal documents.
+    SQLite persistence layer for analysed legal documents.
+
+    Schema
+    ------
+    analyses (
+        id            INTEGER PK AUTOINCREMENT,
+        user_id       TEXT NOT NULL,
+        document_name TEXT NOT NULL,
+        ocr_confidence REAL,
+        summary       TEXT,
+        risk_analysis TEXT,     -- JSON-serialised dict
+        created_at    TEXT      -- UTC ISO-8601 string
+    )
+
+    Indexes
+    -------
+    idx_user_id    — speeds up per-user history retrieval
+    idx_created_at — speeds up ORDER BY created_at DESC
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str) -> None:
+        if not db_path:
+            raise ValueError("db_path must be a non-empty string.")
         self.db_path = db_path
         self._init_db()
+        logger.info("Database initialised at: %s", self.db_path)
 
-    def _connect(self):
-        return sqlite3.connect(self.db_path)
+    # ──────────────────────────────────────────────────────────────────────────
+    # Private helpers
+    # ──────────────────────────────────────────────────────────────────────────
 
-    def _init_db(self):
-        with self._connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS analyses (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    document_name TEXT NOT NULL,
-                    ocr_confidence REAL,
-                    summary TEXT,
-                    risk_analysis TEXT,
-                    created_at TEXT
-                )
-            """)
-            conn.commit()
+    def _connect(self) -> sqlite3.Connection:
+        """Open a new SQLite connection with Row factory enabled."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -> None:
+        """Create the schema and indexes if they do not already exist."""
+        ddl_table = """
+            CREATE TABLE IF NOT EXISTS analyses (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id        TEXT NOT NULL,
+                document_name  TEXT NOT NULL,
+                ocr_confidence REAL,
+                summary        TEXT,
+                risk_analysis  TEXT,
+                created_at     TEXT
+            )
+        """
+        ddl_idx_user = """
+            CREATE INDEX IF NOT EXISTS idx_user_id
+            ON analyses (user_id)
+        """
+        ddl_idx_date = """
+            CREATE INDEX IF NOT EXISTS idx_created_at
+            ON analyses (created_at)
+        """
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute(ddl_table)
+                conn.execute(ddl_idx_user)
+                conn.execute(ddl_idx_date)
+        logger.debug("Database schema and indexes verified.")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Public API
+    # ──────────────────────────────────────────────────────────────────────────
 
     def save_result(
         self,
@@ -38,46 +96,71 @@ class Database:
         document_name: str,
         ocr_confidence: float,
         summary: str,
-        risk_analysis: Dict
-    ):
-        with self._connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO analyses (
-                    user_id, document_name, ocr_confidence,
-                    summary, risk_analysis, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                user_id,
-                document_name,
-                ocr_confidence,
-                summary,
-                json.dumps(risk_analysis),
-                datetime.utcnow().isoformat()
-            ))
-            conn.commit()
+        risk_analysis: Dict,
+    ) -> None:
+        """
+        Persist a single analysis result to the database.
+
+        Parameters
+        ----------
+        user_id       : str   — identifier for the requesting user
+        document_name : str   — original filename of the uploaded document
+        ocr_confidence: float — average OCR confidence score (0–100)
+        summary       : str   — plain-language summary generated by BART
+        risk_analysis : dict  — combined rule + ML risk findings
+        """
+        sql = """
+            INSERT INTO analyses
+                (user_id, document_name, ocr_confidence, summary, risk_analysis, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """
+        params = (
+            user_id,
+            document_name,
+            ocr_confidence,
+            summary,
+            json.dumps(risk_analysis),
+            datetime.now(timezone.utc).isoformat(),
+        )
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute(sql, params)
+        logger.debug("Result saved for user '%s', document '%s'.", user_id, document_name)
 
     def fetch_user_history(self, user_id: str) -> List[Dict]:
-        with self._connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT document_name, ocr_confidence, summary,
-                       risk_analysis, created_at
-                FROM analyses
-                WHERE user_id = ?
-                ORDER BY created_at DESC
-            """, (user_id,))
+        """
+        Retrieve all past analysis records for a given user, most recent first.
 
-            rows = cursor.fetchall()
+        Parameters
+        ----------
+        user_id : str
+            The user identifier used when results were saved.
 
-        results = []
-        for row in rows:
-            results.append({
-                "document_name": row[0],
-                "ocr_confidence": row[1],
-                "summary": row[2],
-                "risk_analysis": json.loads(row[3]),
-                "created_at": row[4]
-            })
+        Returns
+        -------
+        list of dict
+            Each dict contains: document_name, ocr_confidence, summary,
+            risk_analysis (parsed from JSON), created_at.
+        """
+        sql = """
+            SELECT document_name, ocr_confidence, summary, risk_analysis, created_at
+            FROM   analyses
+            WHERE  user_id = ?
+            ORDER  BY created_at DESC
+        """
+        with closing(self._connect()) as conn:
+            rows = conn.execute(sql, (user_id,)).fetchall()
 
+        results = [
+            {
+                "document_name": row["document_name"],
+                "ocr_confidence": row["ocr_confidence"],
+                "summary": row["summary"],
+                "risk_analysis": json.loads(row["risk_analysis"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+        logger.debug("Fetched %d record(s) for user '%s'.", len(results), user_id)
         return results
